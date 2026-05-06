@@ -1,0 +1,126 @@
+// ============================================
+// Sistema de Deteção de Queda na Cama
+// SENSOR ESQUERDA | Trigger: D9  | Echo: D10 | LED Verde: D2 | LED Vermelho: D4 | Buzzer: D5
+// SENSOR DIREITA  | Trigger: D13 | Echo: D3  | LED Verde: D7 | LED Vermelho: D11 | Buzzer: D6
+// ============================================
+
+// --- Pinos Sensor Esquerda ---
+const int SE_TRIGGER      = 9;
+const int SE_ECHO         = 10;
+const int SE_LED_VERDE    = 2;
+const int SE_LED_VERMELHO = 4;
+const int SE_BUZZER       = 5;
+
+// --- Pinos Sensor Direita ---
+const int SD_TRIGGER      = 13;
+const int SD_ECHO         = 3;
+const int SD_LED_VERDE    = 7;
+const int SD_LED_VERMELHO = 11;
+const int SD_BUZZER       = 6;
+
+// --- Configuração ---
+const int DISTANCIA_ALERTA = 15;  // cm — alerta se objeto a <= 15 cm
+const int DELAY_LOOP       = 200; // ms entre leituras
+
+// ============================================
+// Função genérica para medir distância
+// ============================================
+long medirDistancia(int pinTrigger, int pinEcho) {
+  digitalWrite(pinTrigger, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(pinTrigger, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(pinTrigger, LOW);
+
+  long duracao = pulseIn(pinEcho, HIGH, 30000); // timeout 30 ms
+
+  if (duracao == 0) return -1;
+
+  return duracao * 0.034 / 2;
+}
+
+// ============================================
+// Função genérica para processar alerta
+// ============================================
+void processarSensor(const char* nomeSensor, int pinTrigger, int pinEcho,
+                     int pinLedVerde, int pinLedVermelho, int pinBuzzer) {
+
+  long distancia = medirDistancia(pinTrigger, pinEcho);
+
+  Serial.print("[ ");
+  Serial.print(nomeSensor);
+  Serial.print(" ] ");
+
+  if (distancia == -1) {
+    Serial.println("Sem leitura valida (fora de alcance ou erro)");
+    digitalWrite(pinLedVerde,    HIGH);
+    digitalWrite(pinLedVermelho, LOW);
+    digitalWrite(pinBuzzer,      LOW);
+  } else {
+    Serial.print("Distancia: ");
+    Serial.print(distancia);
+    Serial.print(" cm  |  Estado: ");
+
+    if (distancia <= DISTANCIA_ALERTA) {
+      Serial.println("*** QUEDA DETETADA ***");
+      digitalWrite(pinLedVerde,    LOW);
+      digitalWrite(pinLedVermelho, HIGH);
+      digitalWrite(pinBuzzer,      HIGH);
+    } else {
+      Serial.println("Normal (sem deteção)");
+      digitalWrite(pinLedVerde,    HIGH);
+      digitalWrite(pinLedVermelho, LOW);
+      digitalWrite(pinBuzzer,      LOW);
+    }
+  }
+}
+
+// ============================================
+void setup() {
+  Serial.begin(9600);
+
+  // Sensor Esquerda
+  pinMode(SE_TRIGGER,      OUTPUT);
+  pinMode(SE_ECHO,         INPUT);
+  pinMode(SE_LED_VERDE,    OUTPUT);
+  pinMode(SE_LED_VERMELHO, OUTPUT);
+  pinMode(SE_BUZZER,       OUTPUT);
+
+  // Sensor Direita
+  pinMode(SD_TRIGGER,      OUTPUT);
+  pinMode(SD_ECHO,         INPUT);
+  pinMode(SD_LED_VERDE,    OUTPUT);
+  pinMode(SD_LED_VERMELHO, OUTPUT);
+  pinMode(SD_BUZZER,       OUTPUT);
+
+  // Estado inicial
+  digitalWrite(SE_LED_VERDE,    HIGH);
+  digitalWrite(SE_LED_VERMELHO, LOW);
+  digitalWrite(SE_BUZZER,       LOW);
+
+  digitalWrite(SD_LED_VERDE,    HIGH);
+  digitalWrite(SD_LED_VERMELHO, LOW);
+  digitalWrite(SD_BUZZER,       LOW);
+
+  Serial.println("=== Sistema de Deteção de Queda — 2 Sensores ===");
+  Serial.println("SENSOR DA ESQUERDA: Trigger D9  | Echo D10 | LEDs D2/D4  | Buzzer D5");
+  Serial.println("SENSOR DA DIREITA:  Trigger D13 | Echo D3  | LEDs D7/D11 | Buzzer D6");
+  Serial.println("------------------------------------------------");
+}
+
+// ============================================
+void loop() {
+  // Sensor Esquerda
+  processarSensor("SENSOR DA ESQUERDA", SE_TRIGGER, SE_ECHO,
+                  SE_LED_VERDE, SE_LED_VERMELHO, SE_BUZZER);
+
+  delay(50); // pausa para evitar interferência ultrassónica
+
+  // Sensor Direita
+  processarSensor("SENSOR DA DIREITA", SD_TRIGGER, SD_ECHO,
+                  SD_LED_VERDE, SD_LED_VERMELHO, SD_BUZZER);
+
+  Serial.println("------------------------------------------------");
+  delay(DELAY_LOOP);
+}
